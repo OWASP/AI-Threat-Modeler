@@ -54,16 +54,22 @@ jobs:
           FORCE: ${{ github.event.inputs.force }}
         run: |
           set -euo pipefail
-          if [ "$(git rev-parse HEAD)" = "$(git rev-parse fork/main)" ]; then
+          head_owasp=$(git rev-parse HEAD)
+          head_fork=$(git rev-parse fork/main)
+
+          if [ "$head_owasp" = "$head_fork" ]; then
             echo "Already up to date with fork/main."
             exit 0
           fi
 
-          if git merge-base --is-ancestor HEAD fork/main; then
-            echo "Fast-forwarding OWASP/main to fork/main..."
-            git merge --ff-only fork/main
-            git push origin main --follow-tags
-            exit 0
+          # Check for a common ancestor; if none, histories are unrelated.
+          if common=$(git merge-base HEAD fork/main 2>/dev/null) || true; then
+            if git merge-base --is-ancestor HEAD fork/main; then
+              echo "Fast-forwarding OWASP/main to fork/main..."
+              git merge --ff-only fork/main
+              git push origin main --follow-tags
+              exit 0
+            fi
           fi
 
           if [ "$FORCE" = "true" ]; then
